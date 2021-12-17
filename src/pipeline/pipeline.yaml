@@ -1,0 +1,117 @@
+---
+resources:
+- name: source
+  type: git
+  icon: github
+  source:
+    uri: ((source.repository))
+    branch: ((source.branch))
+    paths:
+    - "config/**"
+
+# - name: minio-chart
+#   type: helm-chart
+#   icon: ship-wheel
+#   source:
+#     chart: minio 
+#     repository_url: https://charts.min.io
+
+- name: lab-setup
+  type: git
+  icon: github
+  source:
+    uri: ((lab.repository))
+    paths:
+    - "overlay/trust-certificate/**"
+
+jobs:
+- name: generate-and-apply
+  plan:
+  # - get: minio-chart
+  #   trigger: true
+  #   skip_download: false
+  - get: source
+    trigger: true
+  - get: lab-setup
+  - task: generate-template
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: { repository: registry.shortrib.dev/toolkit/toolkit }
+      inputs:
+      # - name: minio-chart
+      - name: source
+      - name: lab-setup
+      outputs:
+      - name: manifest
+      params:
+        CLUSTER_NAME: ((kubernetes.cluster))
+        MINIO_FQDN: ((minio.fqdn))
+        MINIO_CONSOLE_FQDN: ((minio.console-fqdn))
+        MINIO_USER: ((minio.root-user))
+        MINIO_PASSWORD: ((minio.root-password))
+        MINIO_NAMESPACE: ((minio.namespace))
+        STORAGE_CLASS: ((minio.storage-class))
+        HARBOR_ACCESS_KEY_ID: ((harbor.access-key-id))
+        HARBOR_SECRET_KEY: ((harbor.secret-access-key))
+        HARBOR_BUCKET: ((harbor.bucket))
+      run:
+        path: bash
+        args:
+        - "-e"
+        - "-c"
+        - |
+          mkdir -p manifest/minio/
+
+          ytt --ignore-unknown-comments -f source/config/minio-values-contour-template.yaml \
+              --data-value minio.fqdn="${MINIO_FQDN}" \
+              --data-value minio.console-fqdn="${MINIO_CONSOLE_FQDN}" \
+              --data-value minio.root-user="${MINIO_USER}" \
+              --data-value minio.root-password="${MINIO_PASSWORD}" \
+              --data-value harbor.blob-storage.bucket="${HARBOR_BUCKET}" \
+              --data-value harbor.blob-storage.access-key-id="${HARBOR_ACCESS_KEY_ID}" \
+              --data-value harbor.blob-storage.secret-access-key="${HARBOR_SECRET_KEY}" \
+              --data-value minio.storage-class="${STORAGE_CLASS}" \
+            > manifest/minio-values-contour.yaml
+          curl https://letsencrypt.org/certs/lets-encrypt-r3-cross-signed.pem > letsencrypt.pem
+
+          helm repo add minio https://charts.min.io
+          helm repo update
+          helm template minio minio/minio -f manifest/minio-values-contour.yaml --namespace $MINIO_NAMESPACE --version 3.3.0 | \
+            ytt -f - -f lab-setup/overlay/trust-certificate --ignore-unknown-comments \
+              --data-value certificate=lets-encrypt.pem \
+              --data-value ca=letsencrypt > manifest/helm-manifest.yaml
+  - task: deploy
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: { repository: registry.shortrib.dev/toolkit/toolkit }
+      inputs:
+      - name: manifest
+      params:
+        CLUSTER_NAME: ((kubernetes.cluster))
+        MINIO_FQDN: ((minio.fqdn))
+        MINIO_NAMESPACE: ((minio.namespace))
+        KUBECONFIG_JSON: ((kubeconfig))
+      run:
+        path: bash
+        args:
+        - "-e"
+        - "-c"
+        - |
+          echo "${KUBECONFIG_JSON}" > kubeconfig
+          export KUBECONFIG=$(pwd)/kubeconfig
+          kubectl config use-context platform-team@$CLUSTER_NAME
+
+          kapp deploy -a minio  \
+            -f manifest/helm-manifest.yaml \
+            -n tanzu-kapp --into-ns ${MINIO_NAMESPACE} \
+            -y
+
+resource_types:
+- name: helm-chart
+  type: registry-image
+  source:
+    repository: jghiloni/helm-chart-resource
