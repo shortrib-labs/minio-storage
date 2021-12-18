@@ -32,8 +32,8 @@ persistence:
 ## when Chart is deployed
 environment:
 - MINIO_IDENTITY_OPENID_CONFIG_URL: #@ "{}/.well-known/openid-configuration".format(data.values.okta['auth-server'])
-- MINIO_IDENTITY_OPENID_CLIENT_ID: #@ data.values.okta['client-id'])
-- MINIO_IDENTITY_OPENID_CLIENT_SECRET: #@ data.values.okta['client-secret'])
+- MINIO_IDENTITY_OPENID_CLIENT_ID: #@ data.values.okta['client-id']
+- MINIO_IDENTITY_OPENID_CLIENT_SECRET: #@ data.values.okta['client-secret']
 - MINIO_IDENTITY_OPENID_CLAIM_NAME: groups
 - MINIO_IDENTIFY_OPENID_SCOPES: openid,profile,email
 
