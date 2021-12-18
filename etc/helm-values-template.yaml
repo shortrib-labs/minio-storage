@@ -35,8 +35,7 @@ environment:
   MINIO_IDENTITY_OPENID_CLIENT_ID: #@ data.values.okta['client-id']
   MINIO_IDENTITY_OPENID_CLIENT_SECRET: #@ data.values.okta['client-secret']
   MINIO_IDENTITY_OPENID_CLAIM_NAME: groups
-  MINIO_IDENTIFY_OPENID_SCOPES: openid,profile,email
-
+  MINIO_IDENTITY_OPENID_REDIRECT_URI: #@ "https://{}/oauth_callback".format(data.values.minio["console-fqdn"])
 ## Configure Ingress based on the documentation here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ##
 ingress:
