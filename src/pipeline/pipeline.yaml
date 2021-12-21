@@ -109,7 +109,37 @@ jobs:
             -f manifest/helm-manifest.yaml \
             -n tanzu-kapp --into-ns ${MINIO_NAMESPACE} \
             -y
-
+- name: set-policy
+  plan:
+  - get: source
+    trigger: true
+    passed:
+    - generate-and-apply
+  - task: set-policy
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: quay.io/minio/mc
+          tag: RELEASE.2021-11-16T20-37-36Z 
+      inputs:
+      - name: source
+      params:
+        CLUSTER_NAME: ((kubernetes.cluster))
+        MINIO_FQDN: ((minio.fqdn))
+        MINIO_ACCESS_KEY_ID: ((minio.root-user)) 
+        MINIO_SECRET_KEY: ((minio.root-password))
+      run:
+        path: /bin/bash
+        args:
+        - "-e"
+        - "-c"
+        - |  
+          mc config host add ${CLUSTER_NAME} https://${MINIO_FQDN} ${MINIO_ACCESS_KEY_ID} ${MINIO_SECRET_KEY}
+          for policy in source/etc/policy/*.json ; do
+          mc admin policy add ${CLUSTER_NAME} $(basename ${policy} .json) ${policy}
+          done
 resource_types:
 - name: helm-chart
   type: registry-image
