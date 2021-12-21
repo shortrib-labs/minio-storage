@@ -7,7 +7,7 @@ resources:
     uri: ((source.repository))
     branch: ((source.branch))
     paths:
-    - "config/**"
+    - "etc/**"
 
 # - name: minio-chart
 #   type: helm-chart
@@ -52,6 +52,9 @@ jobs:
         MINIO_USER: ((minio.root-user))
         MINIO_PASSWORD: ((minio.root-password))
         MINIO_NAMESPACE: ((minio.namespace))
+        OKTA_AUTH_SERVER: ((okta.auth-server))
+        OKTA_CLIENT_ID: ((okta.client-id))
+        OKTA_CLIENT_SECRET: ((okta.client-secret))
         STORAGE_CLASS: ((minio.storage-class))
         HARBOR_ACCESS_KEY_ID: ((harbor.access-key-id))
         HARBOR_SECRET_KEY: ((harbor.secret-access-key))
@@ -64,21 +67,24 @@ jobs:
         - |
           mkdir -p manifest/minio/
 
-          ytt --ignore-unknown-comments -f source/config/minio-values-contour-template.yaml \
+          ytt --ignore-unknown-comments -f source/etc/helm-values-template.yaml \
               --data-value minio.fqdn="${MINIO_FQDN}" \
               --data-value minio.console-fqdn="${MINIO_CONSOLE_FQDN}" \
               --data-value minio.root-user="${MINIO_USER}" \
               --data-value minio.root-password="${MINIO_PASSWORD}" \
+              --data-value minio.storage-class="${STORAGE_CLASS}" \
+              --data-value okta.auth-server="${OKTA_AUTH_SERVER}" \
+              --data-value okta.client-id="${OKTA_CLIENT_ID}" \
+              --data-value okta.client-secret="${OKTA_CLIENT_SECRET}" \
               --data-value harbor.blob-storage.bucket="${HARBOR_BUCKET}" \
               --data-value harbor.blob-storage.access-key-id="${HARBOR_ACCESS_KEY_ID}" \
               --data-value harbor.blob-storage.secret-access-key="${HARBOR_SECRET_KEY}" \
-              --data-value minio.storage-class="${STORAGE_CLASS}" \
-            > manifest/minio-values-contour.yaml
+            > manifest/helm-values.yaml
           curl https://letsencrypt.org/certs/lets-encrypt-r3-cross-signed.pem > letsencrypt.pem
 
           helm repo add minio https://charts.min.io
           helm repo update
-          helm template minio minio/minio -f manifest/minio-values-contour.yaml --namespace $MINIO_NAMESPACE --version 3.3.0 | \
+          helm template minio minio/minio -f manifest/helm-values.yaml --namespace $MINIO_NAMESPACE --version 3.3.0 | \
             ytt -f - -f lab-setup/overlay/trust-certificate --ignore-unknown-comments \
               --data-value certificate=lets-encrypt.pem \
               --data-value ca=letsencrypt > manifest/helm-manifest.yaml
