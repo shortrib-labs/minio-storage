@@ -1,7 +1,7 @@
 ---
 source:
   repository: https://github.com/shortrib-net/minio-storage
-  branch: feature-automation
+  branch: main
 
 lab:
   repository: https://github.com/shortrib-net/tanzu
