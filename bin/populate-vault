@@ -4,8 +4,11 @@ set -e
 put-secret --team platform-team --pipeline "$(basename ${PROJECT_DIR})" \
   --var minio fqdn="$(yq e .minio.fqdn ${PARAMS_YAML})" console-fqdn="$(yq e .minio.console-fqdn ${PARAMS_YAML})" \
               root-user="$(yq e .minio.root-user ${PARAMS_YAML})" root-password="$(yq e .minio.root-password ${PARAMS_YAML})" \
-              namespace="$(yq e .minio.namespace ${PARAMS_YAML})" storage="$(yq e .minio.storage ${PARAMS_YAML})" \
-              storage-class="$(yq e .minio.namespace ${PARAMS_YAML})"
+              namespace="$(yq e .minio.namespace ${PARAMS_YAML})" storage-class="$(yq e .minio.storage-class ${PARAMS_YAML})"
+
+put-secret --team platform-team --pipeline "$(basename ${PROJECT_DIR})" \
+  --var okta auth-server="$(yq e .okta.auth-server ${PARAMS_YAML})" \
+             client-id="$(yq e .okta.client-id ${PARAMS_YAML})" client-secret="$(yq e .okta.client-secret ${PARAMS_YAML})"
 
 put-secret --team platform-team --pipeline "$(basename ${PROJECT_DIR})" \
   --var harbor bucket="$(yq e .harbor.bucket ${PARAMS_YAML})" \
